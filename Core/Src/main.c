@@ -100,21 +100,42 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   /*
-   * First ESC test on Motor 1 (TIM1_CH1 / PA8):
+   * First ESC test on all four motors:
    * arm at minimum throttle, run briefly at 1050 us, then return to minimum.
    * Test without propellers fitted.
    */
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_MIN_PULSE_US);
 
   if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
 
   HAL_Delay(ESC_ARM_TIME_MS);
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_TEST_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_TEST_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_TEST_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_TEST_PULSE_US);
   HAL_Delay(ESC_TEST_TIME_MS);
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_MIN_PULSE_US);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_MIN_PULSE_US);
 
   /* USER CODE END 2 */
 
