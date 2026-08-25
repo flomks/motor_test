@@ -38,6 +38,7 @@
 #define ESC_TEST_PULSE_US      1050U
 #define ESC_ARM_TIME_MS        3000U
 #define ESC_TEST_TIME_MS       2000U
+#define ESC_STOP_TIME_MS       3000U
 
 /* USER CODE END PD */
 
@@ -57,10 +58,43 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
 
+static void ESC_SetAllPulse(uint32_t pulse_us);
+static HAL_StatusTypeDef ESC_StartAll(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+static void ESC_SetAllPulse(uint32_t pulse_us)
+{
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse_us);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pulse_us);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, pulse_us);
+  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, pulse_us);
+}
+
+static HAL_StatusTypeDef ESC_StartAll(void)
+{
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
+  {
+    return HAL_ERROR;
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2) != HAL_OK)
+  {
+    return HAL_ERROR;
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3) != HAL_OK)
+  {
+    return HAL_ERROR;
+  }
+  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4) != HAL_OK)
+  {
+    return HAL_ERROR;
+  }
+
+  return HAL_OK;
+}
 
 /* USER CODE END 0 */
 
@@ -99,43 +133,15 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  /*
-   * First ESC test on all four motors:
-   * arm at minimum throttle, run briefly at 1050 us, then return to minimum.
-   * Test without propellers fitted.
-   */
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_MIN_PULSE_US);
+  /* Arm all four ESCs at minimum throttle. Test without propellers fitted. */
+  ESC_SetAllPulse(ESC_MIN_PULSE_US);
 
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4) != HAL_OK)
+  if (ESC_StartAll() != HAL_OK)
   {
     Error_Handler();
   }
 
   HAL_Delay(ESC_ARM_TIME_MS);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_TEST_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_TEST_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_TEST_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_TEST_PULSE_US);
-  HAL_Delay(ESC_TEST_TIME_MS);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, ESC_MIN_PULSE_US);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, ESC_MIN_PULSE_US);
 
   /* USER CODE END 2 */
 
@@ -146,6 +152,11 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    ESC_SetAllPulse(ESC_TEST_PULSE_US);
+    HAL_Delay(ESC_TEST_TIME_MS);
+
+    ESC_SetAllPulse(ESC_MIN_PULSE_US);
+    HAL_Delay(ESC_STOP_TIME_MS);
   }
   /* USER CODE END 3 */
 }
