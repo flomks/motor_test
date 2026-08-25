@@ -34,11 +34,22 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define ESC_MIN_PULSE_US       1000U
-#define ESC_TEST_PULSE_US      1050U
-#define ESC_ARM_TIME_MS        3000U
-#define ESC_TEST_TIME_MS       2000U
-#define ESC_STOP_TIME_MS       3000U
+#define ESC_RAMP_START_US          1000U
+#define ESC_RAMP_END_US            1200U
+#define ESC_RAMP_STEP_US           10U
+#define ESC_RAMP_STEP_DELAY_MS     100U
+#define ESC_MAX_HOLD_TIME_MS       2000U
+#define ESC_ARM_TIME_MS            3000U
+#define ESC_STOP_TIME_MS           3000U
+
+#if (ESC_RAMP_STEP_US == 0U)
+#error "ESC_RAMP_STEP_US must be greater than zero"
+#endif
+
+#if (ESC_RAMP_START_US < 1000U) || (ESC_RAMP_END_US > 2000U) || \
+    (ESC_RAMP_END_US < ESC_RAMP_START_US)
+#error "ESC ramp must stay within 1000..2000 us and end at or above start"
+#endif
 
 /* USER CODE END PD */
 
@@ -58,40 +69,33 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
 
-static void ESC_SetAllPulse(uint32_t pulse_us);
-static HAL_StatusTypeDef ESC_StartAll(void);
+static void ESC_SetTestMotorPulse(uint32_t pulse_us);
+static HAL_StatusTypeDef ESC_StartTestMotor(void);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-static void ESC_SetAllPulse(uint32_t pulse_us)
+static void ESC_SetTestMotorPulse(uint32_t pulse_us)
 {
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse_us);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pulse_us);
+  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse_us); */
+  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pulse_us); */
   __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, pulse_us);
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, pulse_us);
+  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, pulse_us); */
 }
 
-static HAL_StatusTypeDef ESC_StartAll(void)
+static HAL_StatusTypeDef ESC_StartTestMotor(void)
 {
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1) != HAL_OK)
-  {
-    return HAL_ERROR;
-  }
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2) != HAL_OK)
-  {
-    return HAL_ERROR;
-  }
+  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); */
+  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2); */
+
   if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3) != HAL_OK)
   {
     return HAL_ERROR;
   }
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4) != HAL_OK)
-  {
-    return HAL_ERROR;
-  }
+
+  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); */
 
   return HAL_OK;
 }
@@ -133,10 +137,10 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Arm all four ESCs at minimum throttle. Test without propellers fitted. */
-  ESC_SetAllPulse(ESC_MIN_PULSE_US);
+  /* Arm only Motor 3 (TIM1_CH3 / PA10). Test without propellers fitted. */
+  ESC_SetTestMotorPulse(ESC_RAMP_START_US);
 
-  if (ESC_StartAll() != HAL_OK)
+  if (ESC_StartTestMotor() != HAL_OK)
   {
     Error_Handler();
   }
@@ -152,10 +156,37 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    ESC_SetAllPulse(ESC_TEST_PULSE_US);
-    HAL_Delay(ESC_TEST_TIME_MS);
+    /* Ramp Motor 3 from the start value up to the end value. */
+    for (uint32_t pulse_us = ESC_RAMP_START_US;
+         pulse_us < ESC_RAMP_END_US;
+         pulse_us += ESC_RAMP_STEP_US)
+    {
+      ESC_SetTestMotorPulse(pulse_us);
+      HAL_Delay(ESC_RAMP_STEP_DELAY_MS);
+    }
 
-    ESC_SetAllPulse(ESC_MIN_PULSE_US);
+    /* Hold the configured maximum value. */
+    ESC_SetTestMotorPulse(ESC_RAMP_END_US);
+    HAL_Delay(ESC_MAX_HOLD_TIME_MS);
+
+    /* Ramp Motor 3 back down without unsigned-integer underflow. */
+    uint32_t pulse_us = ESC_RAMP_END_US;
+    while (pulse_us > ESC_RAMP_START_US)
+    {
+      if ((pulse_us - ESC_RAMP_START_US) > ESC_RAMP_STEP_US)
+      {
+        pulse_us -= ESC_RAMP_STEP_US;
+      }
+      else
+      {
+        pulse_us = ESC_RAMP_START_US;
+      }
+
+      ESC_SetTestMotorPulse(pulse_us);
+      HAL_Delay(ESC_RAMP_STEP_DELAY_MS);
+    }
+
+    /* Stay stopped before starting the next ramp. */
     HAL_Delay(ESC_STOP_TIME_MS);
   }
   /* USER CODE END 3 */
