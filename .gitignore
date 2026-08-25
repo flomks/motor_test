@@ -1,0 +1,25 @@
+# STM32CubeIDE build directories
+**/Debug/
+**/Release/
+**/RelWithDebInfo/
+**/MinSizeRel/
+
+# Compiler and linker output
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.elf
+*.axf
+*.map
+*.list
+*.bin
+*.hex
+
+# IDE and operating-system generated files
+.metadata/
+RemoteSystemsTempFiles/
+.DS_Store
+Thumbs.db
+*~

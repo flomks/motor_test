@@ -1,4 +1,0 @@
-F:/uas/stm/motor_test/Core/Src/tim.c:30:6:MX_TIM1_Init	10
-F:/uas/stm/motor_test/Core/Src/tim.c:117:6:HAL_TIM_Base_MspInit	2
-F:/uas/stm/motor_test/Core/Src/tim.c:132:6:HAL_TIM_MspPostInit	2
-F:/uas/stm/motor_test/Core/Src/tim.c:163:6:HAL_TIM_Base_MspDeInit	2
