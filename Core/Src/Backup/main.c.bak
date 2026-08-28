@@ -46,11 +46,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
-/**
- * 0-47
- * 
- */
 static uint16_t motor_values[DSHOT_MOTOR_COUNT] = {
 		0U,
 		0U,
