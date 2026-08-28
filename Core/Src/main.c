@@ -18,11 +18,13 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "tim.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "dshot.h"
 
 /* USER CODE END Includes */
 
@@ -34,23 +36,6 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define ESC_RAMP_START_US          1000U
-#define ESC_RAMP_END_US            1200U
-#define ESC_RAMP_STEP_US           10U
-#define ESC_RAMP_STEP_DELAY_MS     100U
-#define ESC_MAX_HOLD_TIME_MS       2000U
-#define ESC_ARM_TIME_MS            3000U
-#define ESC_STOP_TIME_MS           3000U
-
-#if (ESC_RAMP_STEP_US == 0U)
-#error "ESC_RAMP_STEP_US must be greater than zero"
-#endif
-
-#if (ESC_RAMP_START_US < 1000U) || (ESC_RAMP_END_US > 2000U) || \
-    (ESC_RAMP_END_US < ESC_RAMP_START_US)
-#error "ESC ramp must stay within 1000..2000 us and end at or above start"
-#endif
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,7 +46,12 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+static uint16_t motor_values[DSHOT_MOTOR_COUNT] = {
+		0U,
+		0U,
+		0U,
+		0U
+};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,36 +59,10 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
 
-static void ESC_SetTestMotorPulse(uint32_t pulse_us);
-static HAL_StatusTypeDef ESC_StartTestMotor(void);
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-static void ESC_SetTestMotorPulse(uint32_t pulse_us)
-{
-  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, pulse_us); */
-  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, pulse_us); */
-  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, pulse_us);
-  /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, pulse_us); */
-}
-
-static HAL_StatusTypeDef ESC_StartTestMotor(void)
-{
-  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1); */
-  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2); */
-
-  if (HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3) != HAL_OK)
-  {
-    return HAL_ERROR;
-  }
-
-  /* HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); */
-
-  return HAL_OK;
-}
 
 /* USER CODE END 0 */
 
@@ -134,19 +98,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Arm only Motor 3 (TIM1_CH3 / PA10). Test without propellers fitted. */
-  ESC_SetTestMotorPulse(ESC_RAMP_START_US);
-
-  if (ESC_StartTestMotor() != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  HAL_Delay(ESC_ARM_TIME_MS);
-
+  // Init DShot
+ if(DShot_Init() != HAL_OK)
+	 Error_Handler();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -156,38 +114,12 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    /* Ramp Motor 3 from the start value up to the end value. */
-    for (uint32_t pulse_us = ESC_RAMP_START_US;
-         pulse_us < ESC_RAMP_END_US;
-         pulse_us += ESC_RAMP_STEP_US)
-    {
-      ESC_SetTestMotorPulse(pulse_us);
-      HAL_Delay(ESC_RAMP_STEP_DELAY_MS);
-    }
+	  if(!DShot_IsBusy()){
+		  if(DShot_Send(motor_values, 0U) != HAL_OK)
+			  Error_Handler();
+	  }
 
-    /* Hold the configured maximum value. */
-    ESC_SetTestMotorPulse(ESC_RAMP_END_US);
-    HAL_Delay(ESC_MAX_HOLD_TIME_MS);
-
-    /* Ramp Motor 3 back down without unsigned-integer underflow. */
-    uint32_t pulse_us = ESC_RAMP_END_US;
-    while (pulse_us > ESC_RAMP_START_US)
-    {
-      if ((pulse_us - ESC_RAMP_START_US) > ESC_RAMP_STEP_US)
-      {
-        pulse_us -= ESC_RAMP_STEP_US;
-      }
-      else
-      {
-        pulse_us = ESC_RAMP_START_US;
-      }
-
-      ESC_SetTestMotorPulse(pulse_us);
-      HAL_Delay(ESC_RAMP_STEP_DELAY_MS);
-    }
-
-    /* Stay stopped before starting the next ramp. */
-    HAL_Delay(ESC_STOP_TIME_MS);
+	  HAL_Delay(1U);
   }
   /* USER CODE END 3 */
 }
@@ -207,7 +139,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
   while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
 
@@ -217,7 +149,16 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_DIV1;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 30;
+  RCC_OscInitStruct.PLL.PLLP = 2;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
+  RCC_OscInitStruct.PLL.PLLR = 2;
+  RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
+  RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
+  RCC_OscInitStruct.PLL.PLLFRACN = 0;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -228,21 +169,28 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
                               |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
-  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV1;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
-  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV1;
+  RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV2;
+  RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1)
+    {
+        DShot_TransferComplete();
+    }
+}
 
 /* USER CODE END 4 */
 

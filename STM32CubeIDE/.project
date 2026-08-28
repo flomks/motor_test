@@ -37,6 +37,11 @@
 			<locationURI>PARENT-1-PROJECT_LOC/motor_test.ioc</locationURI>
 		</link>
 		<link>
+			<name>Application/Inc</name>
+			<type>2</type>
+			<location>F:/uas/stm/motor_test/Core/Inc</location>
+		</link>
+		<link>
 			<name>Drivers/CMSIS/system_stm32h7xx.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/system_stm32h7xx.c</locationURI>
@@ -130,6 +135,11 @@
 			<name>Drivers/STM32H7xx_HAL_Driver/stm32h7xx_hal_tim_ex.c</name>
 			<type>1</type>
 			<locationURI>PARENT-1-PROJECT_LOC/Drivers/STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_tim_ex.c</locationURI>
+		</link>
+		<link>
+			<name>Application/User/Core/dma.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/Core/Src/dma.c</locationURI>
 		</link>
 		<link>
 			<name>Application/User/Core/gpio.c</name>
