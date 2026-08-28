@@ -48,8 +48,11 @@
  * @brief Shared DMA buffer indexed by timer slot and motor channel.
  *
  * @note The first dimension selects the slot; the second selects the motor.
+ * @warning Must reside in D2 SRAM1 (.dma_ram). DMA1 and DMA2 cannot address
+ *          DTCM, so a default .bss placement silently breaks the transfer.
  */
-static uint32_t dma_buffer[DSHOT_TOTAL_SLOTS][DSHOT_MOTOR_COUNT]; // 18 x 4
+static uint32_t dma_buffer[DSHOT_TOTAL_SLOTS][DSHOT_MOTOR_COUNT]
+	__attribute__((section(".dma_ram"))); // 18 x 4
 
 /** @brief Indicates whether a DShot DMA transfer is active. */
 static volatile bool dshot_busy = false;
@@ -124,11 +127,9 @@ static bool DShot_DMABuffer_Builder(
 
 		const bool t = (t_mask & (1U << motor)) != 0U;
 
-
 		const uint16_t packet = DShot_CreatePackage(values[motor], t);
 
 		DShot_EncoderFrame(packet, encoded);
-
 
 		for(uint32_t index = 0U;
 				index < DSHOT_FRAME_BITS;
@@ -149,7 +150,6 @@ static bool DShot_DMABuffer_Builder(
 			dma_buffer[slot][motor] = 0U;
 		}
 	}
-
 	return true;
 }
 
@@ -255,6 +255,29 @@ void DShot_TransferComplete(void){
 	HAL_TIM_DMABurst_WriteStop(
 			&htim1,
 			TIM_DMA_UPDATE);
+
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0U);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0U);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0U);
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0U);
+
+	dshot_busy = false;
+}
+
+/**
+ * @brief Aborts a failed transfer and releases the driver.
+ *
+ * @details Stops the DMA burst, forces all outputs low and clears the busy
+ *          flag so the next transmission can start.
+ *
+ * @note Call this from the TIM1 error callback. Without this path a DMA
+ *       error leaves dshot_busy set forever and the outputs frozen.
+ */
+void DShot_Abort(void)
+{
+	HAL_TIM_DMABurst_WriteStop(
+					&htim1,
+					TIM_DMA_UPDATE);
 
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0U);
 	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0U);

@@ -230,6 +230,21 @@ SECTIONS
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );
 
+  /* DMA-erreichbarer Speicher in D2-SRAM1.
+     DMA1/DMA2 koennen DTCM/ITCM nicht adressieren.
+     NOLOAD ist zwingend: GCC legt Variablen mit section-Attribut als
+     PROGBITS an, sonst entsteht ein LOAD-Segment auf 0x30000000.
+     Wird vom Startup nicht genullt (liegt ausserhalb _sbss/_ebss). */
+  .dma_ram (NOLOAD) :
+  {
+    . = ALIGN(32);
+    _sdma_ram = .;
+    *(.dma_ram)
+    *(.dma_ram*)
+    . = ALIGN(32);
+    _edma_ram = .;
+  } >RAM_D2
+
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack (NOLOAD) :
   {

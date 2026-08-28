@@ -31,4 +31,6 @@ HAL_StatusTypeDef ESC_SetDirection(
 		esc_direction_t direction,
 		bool save_permanently);
 
+HAL_StatusTypeDef ESC_Beep(esc_channel_t channel);
+
 #endif /* APPLICATION_INC_ESC_CONFIG_H_ */

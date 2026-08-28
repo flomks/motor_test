@@ -25,6 +25,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "dshot.h"
+#include "esc_config.h"
+#include "esc_config.h"
 
 /* USER CODE END Includes */
 
@@ -48,7 +50,9 @@
 /* USER CODE BEGIN PV */
 
 /**
- * 0-47
+ * 0 motor stop
+ * 1-47 CMDs (Beep, Direction, save...)
+ * 48-2047 throttle (2047 max)
  * 
  */
 static uint16_t motor_values[DSHOT_MOTOR_COUNT] = {
@@ -92,12 +96,18 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
+
+  /* Enable the D2 SRAM1 interface clock. The DShot DMA buffer lives there
+   (.dma_ram). RCC_AHB2ENR resets to 0, and CubeMX does not generate this. */
+  __HAL_RCC_D2SRAM1_CLK_ENABLE();
 
   /* USER CODE END SysInit */
 
@@ -110,6 +120,24 @@ int main(void)
   // Init DShot
  if(DShot_Init() != HAL_OK)
 	 Error_Handler();
+
+  for (esc_channel_t ch = ESC_CHANNEL_1; ch <= ESC_CHANNEL_4; ch++)
+  {
+      if (ESC_Beep(ch) != HAL_OK)
+          Error_Handler();
+      HAL_Delay(300U);
+  }
+
+  // BEEP TEST
+  for (uint32_t i = 0U; i < 2000U; i++)
+  {
+    while (DShot_IsBusy()) { }
+    DShot_Send(motor_values, 0U);
+    HAL_Delay(1U);
+  }
+  if (ESC_Beep(ESC_CHANNEL_1) != HAL_OK)
+    Error_Handler();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -194,6 +222,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM1)
     {
         DShot_TransferComplete();
+    }
+}
+
+void HAL_TIM_ErrorCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1)
+    {
+        DShot_Abort();
     }
 }
 

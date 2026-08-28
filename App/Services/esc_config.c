@@ -13,6 +13,14 @@
 /** @brief DShot command that stores the current ESC settings. */
 #define ESC_CMD_SAVE_SETTINGS 12U
 
+/**
+ * @brief DShot command that triggers the ESC beacon tone.
+ *
+ * @note DShot defines five beacons as commands 1 to 5, each with a different
+ *       pitch. Change this value to select another one.
+ */
+#define ESC_CMD_BEACON 1U
+
 /** @brief DShot command that selects normal motor direction. */
 #define ESC_CMD_DIRECTION_NORMAL 20U
 
@@ -166,4 +174,30 @@ HAL_StatusTypeDef	ESC_SetDirection(
 
 	HAL_Delay(ESC_CMD_SAVE_WAIT_MS);
 	return HAL_OK;
+}
+
+
+/**
+ * @brief Plays the beacon tone on one ESC.
+ *
+ * @details The ESC drives the motor windings at an audible frequency, so the
+ *          motor itself acts as the speaker. The shaft does not turn.
+ *
+ * @param[in] channel ESC channel that should emit the tone.
+ * @retval HAL_OK The beacon command completed successfully.
+ * @retval HAL_ERROR The channel is invalid or transmission setup failed.
+ * @retval HAL_BUSY The DShot driver is unavailable.
+ * @retval HAL_TIMEOUT A DShot transfer did not finish in time.
+ * @pre DShot must be initialized and every motor must be stopped.
+ * @note The setting is not persistent, so no save command follows.
+ * @note ESCs typically reject throttle for a short moment afterwards. That is
+ *       expected behaviour and not an error.
+ */
+HAL_StatusTypeDef ESC_Beep(const esc_channel_t channel)
+{
+	/* Reject channels outside the configured motor range. */
+	if ((uint32_t)channel >= DSHOT_MOTOR_COUNT)
+		return HAL_ERROR;
+
+	return ESC_SendCMDRepeat(channel, ESC_CMD_BEACON);
 }
