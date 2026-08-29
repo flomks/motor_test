@@ -25,7 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "dshot.h"
-#include "esc_config.h"
+#include "esc.h"
 #include "esc_config.h"
 
 /* USER CODE END Includes */
@@ -37,6 +37,14 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define MOTOR_TEST_DSHOT_VALUE          50U
+#define MOTOR_TEST_DURATION_MS        10000U
+#define MOTOR_TEST_FRAME_INTERVAL_MS      1U
+
+#if (MOTOR_TEST_DSHOT_VALUE < 48U) || (MOTOR_TEST_DSHOT_VALUE > 2047U)
+#error "MOTOR_TEST_DSHOT_VALUE must be between 48 and 2047"
+#endif
 
 /* USER CODE END PD */
 
@@ -117,28 +125,55 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
 
-  // Init DShot
- if(DShot_Init() != HAL_OK)
-	 Error_Handler();
-
-  for (esc_channel_t ch = ESC_CHANNEL_1; ch <= ESC_CHANNEL_4; ch++)
+  /* Initialize DShot and keep all ESCs stopped during their startup phase. */
+  if (ESC_Init() != HAL_OK)
   {
-      if (ESC_Beep(ch) != HAL_OK)
-          Error_Handler();
-      HAL_Delay(300U);
-  }
-
-  // BEEP TEST
-  for (uint32_t i = 0U; i < 2000U; i++)
-  {
-    while (DShot_IsBusy()) { }
-    DShot_Send(motor_values, 0U);
-    HAL_Delay(1U);
-  }
-  if (ESC_Beep(ESC_CHANNEL_1) != HAL_OK)
     Error_Handler();
+  }
 
-  /* USER CODE END 2 */
+  /* Play all five beacon tones on every ESC. */
+  for (esc_channel_t channel = ESC_CHANNEL_1;
+       channel <= ESC_CHANNEL_4;
+       channel++)
+  {
+    for (uint8_t beacon = 1U; beacon <= 5U; beacon++)
+    {
+      if (ESC_Beep(channel, beacon) != HAL_OK)
+      {
+        Error_Handler();
+      }
+      HAL_Delay(300U);
+    }
+  }
+
+  /* Run all motors at a low throttle value for the configured duration. */
+  for (uint32_t motor = 0U; motor < DSHOT_MOTOR_COUNT; motor++)
+  {
+    motor_values[motor] = MOTOR_TEST_DSHOT_VALUE;
+  }
+
+  const uint32_t motor_test_start = HAL_GetTick();
+
+  while ((HAL_GetTick() - motor_test_start) < MOTOR_TEST_DURATION_MS)
+  {
+    if (!DShot_IsBusy())
+    {
+      if (DShot_Send(motor_values, DSHOT_TELEMETRY_NONE) != HAL_OK)
+      {
+        Error_Handler();
+      }
+    }
+
+    HAL_Delay(MOTOR_TEST_FRAME_INTERVAL_MS);
+  }
+
+  /* Stop every motor after the test. */
+  for (uint32_t motor = 0U; motor < DSHOT_MOTOR_COUNT; motor++)
+  {
+    motor_values[motor] = 0U;
+  }
+
+    /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -147,12 +182,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  if(!DShot_IsBusy()){
-		  if(DShot_Send(motor_values, 0U) != HAL_OK)
-			  Error_Handler();
-	  }
+    if (!DShot_IsBusy())
+    {
+      if (DShot_Send(motor_values, DSHOT_TELEMETRY_NONE) != HAL_OK)
+      {
+        Error_Handler();
+      }
+    }
 
-	  HAL_Delay(1U);
+    HAL_Delay(MOTOR_TEST_FRAME_INTERVAL_MS);
   }
   /* USER CODE END 3 */
 }
